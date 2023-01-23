@@ -1,0 +1,8 @@
+#
+.DS_Store
+.vscode
+venv
+images
+labels
+# raw data files
+*.zip
