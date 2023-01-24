@@ -39,6 +39,6 @@ names:
   37: Vulcan
   38: XB70
   39: YF23
-path: ./dataset/
+path: ../../militaryaircrafts/dataset/
 train: train_split.txt
 val: val_split.txt

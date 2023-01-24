@@ -37,14 +37,14 @@ def get_paths(path: Path) -> tuple[list[str], list[Path]]:
     return image_paths, annotation_paths
 
 
-def build_class_index(path: Path, save=True) -> dict[str, int]:
+def build_class_index(path: Path) -> dict[str, int]:
     class_names = sorted(os.listdir(path / "crop"))
     filtered_class_names = list(filter(lambda f: not f.startswith("."), class_names))
 
     class_idx = {class_name: i for i, class_name in enumerate(filtered_class_names)}
-    if save:
-        json_path = path / "class2idx.json"
-        json_path.write_text(json.dumps(class_idx))
+
+    json_path = path / "class2idx.json"
+    json_path.write_text(json.dumps(class_idx))
     return class_idx
 
 
@@ -101,12 +101,12 @@ def to_yolo_format(df: pd.DataFrame, idx_lu: dict):
 
 
 def gnerate_sample_images(n_samples: int,
+                          path,
+                          image_dir,
+                          label_dir,
+                          sample_image_dir,
                           class_idx: dict[str, int] = None,
-                          inverted_class_idx: dict[int, str] = None,
-                          path=Path("./militaryaircrafts"),
-                          image_dir=Path("./militaryaircrafts") / "images",
-                          label_dir=Path("./militaryaircrafts") / "labels",
-                          sample_image_dir=Path(".militaryaircrafts") / "sample_images"):
+                          inverted_class_idx: dict[int, str] = None):
 
     if class_idx is None:
         class_idx = load_json_as_dict(path / "class2idx.json")
@@ -114,7 +114,7 @@ def gnerate_sample_images(n_samples: int,
         inverted_class_idx = load_json_as_dict(path / "idx2class.json")
 
     cmap = plt.get_cmap('rainbow', len(class_idx))
-    sample_ids = np.random.randint(0, len(os.listdir(path / "images")), n_samples)
+    sample_ids = np.random.randint(0, len(os.listdir(image_dir)), n_samples)
 
     image_paths = [Path(image_dir) / image_path for image_path in sorted(os.listdir(image_dir))]
     label_paths = [Path(label_dir) / label_path for label_path in sorted(os.listdir(label_dir))]
@@ -159,9 +159,7 @@ def gnerate_sample_images(n_samples: int,
                     pad_inches=0)
 
 
-def plot_train_val_split_frequency(path: Path,
-                                   label_dir=Path("./militaryaircrafts") / "labels",
-                                   output_dir=Path("./militaryaircrafts") / "output"):
+def plot_train_val_split_frequency(path: Path, label_dir: Path, output_dir: Path):
     class_counter = {'train': Counter(), 'val': Counter()}
     class_freqs = {}
 
@@ -220,7 +218,6 @@ def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument("data_dir")
-    parser.add_argument("model_dir")
     parser.add_argument("--archive_name")
     parser.add_argument('--preprocess', action="store_true")
     parser.add_argument('--samples', action="store_true")
@@ -242,46 +239,53 @@ def main():
 
     # directories with raw data
     base_dir = Path(args.data_dir)
-    model_dir = Path(args.model_dir)
 
     # directories for preprocessed images and labels
-    image_dir = Path(base_dir) / "images"
-    label_dir = Path(base_dir) / "labels"
-    sample_dir = Path(base_dir) / "sample_images"
-    output_dir = Path(base_dir) / "output"
+    image_dir = Path(base_dir) / "dataset/images"
+    label_dir = Path(base_dir) / "dataset/labels"
+    sample_dir = Path(base_dir) / "dataset/sample_images"
+    output_dir = Path(base_dir) / "plots"
+    model_dir = Path(base_dir) / "model"
+    data_dir = Path(base_dir) / "data"
 
     os.makedirs(image_dir, exist_ok=True)
     os.makedirs(label_dir, exist_ok=True)
     os.makedirs(sample_dir, exist_ok=True)
     os.makedirs(output_dir, exist_ok=True)
+    os.makedirs(model_dir, exist_ok=True)
 
     # check directories exist
     dir_exists(base_dir)
-    dir_exists(model_dir)
 
     class2idx = {}
     idx2class = {}
     if preprocess:
         print("Preprocess images for yolov5 training")
         # unzip raw data
-        unzip(base_dir / zip_file, base_dir)
-        raw_data_dir = base_dir / "dataset"
+        raw_data_dir = base_dir / "raw"
+        unzip(base_dir / zip_file, raw_data_dir)
         dir_exists(raw_data_dir)
         # get image and annotations from raw data directory
-        imgage_paths, annotation_paths = get_paths(path=raw_data_dir)
+        image_paths, annotation_paths = get_paths(path=raw_data_dir / "dataset")
+        print(image_paths)
         # build index
-        class2idx = build_class_index(path=base_dir)
+        class2idx = build_class_index(path=raw_data_dir)
         idx2class = invert_class_index(path=base_dir)
         # dataset labels are not yet in the correct format for yolov5
         convert_bboxes_to_yolo_format(paths=annotation_paths, lu=class2idx, out_dir=label_dir)
         # move data to final directories
-        move_images(imgage_paths, image_dir)
+        move_images(image_paths, image_dir)
         # remove raw files
         rm_dir(raw_data_dir)
-        rm_dir(base_dir / 'crop')
-        rm_dir(base_dir / 'annotated_samples')
+        rm_dir(raw_data_dir / 'crop')
+        rm_dir(raw_data_dir / 'annotated_samples')
+
     elif samples:
-        gnerate_sample_images(5, sample_image_dir=sample_dir)
+        gnerate_sample_images(5,
+                              path=base_dir,
+                              image_dir=image_dir,
+                              label_dir=label_dir,
+                              sample_image_dir=sample_dir)
     elif train_conf:
         print("Prepare train configuration")
         image_paths = [f'images/{image_path}' for image_path in sorted(os.listdir(image_dir))]
@@ -291,26 +295,28 @@ def main():
                                                               random_state=42,
                                                               shuffle=True)
         # make train split
-        with open(base_dir / 'train_split.txt', 'w') as f:
+        with open(base_dir / 'dataset/train_split.txt', 'w') as f:
             f.writelines(f'./{image_path}\n' for image_path in train_image_paths)
 
         # make val split
-        with open(base_dir / 'val_split.txt', 'w') as f:
+        with open(base_dir / 'dataset/val_split.txt', 'w') as f:
             f.writelines(f'./{image_path}\n' for image_path in val_image_paths)
 
-        plot_train_val_split_frequency(path=base_dir)
+        plot_train_val_split_frequency(path=base_dir / "dataset",
+                                       label_dir=label_dir,
+                                       output_dir=output_dir)
 
     else:
         print("Write configuration for training")
         idx = {int(k): v for k, v in load_json_as_dict(Path(base_dir) / "idx2class.json").items()}
         #idx = {}
         yaml_conf = {}
-        yaml_conf["path"] = "./dataset/"
+        yaml_conf["path"] = "../../militaryaircrafts/dataset/"
         yaml_conf["train"] = "train_split.txt"
         yaml_conf["val"] = "val_split.txt"
         yaml_conf["names"] = idx
 
-        with open(model_dir / "./MilitaryAircraft.yaml", 'w') as f:
+        with open(Path("./yolov7") / "data/MilitaryAircraft.yaml", 'w') as f:
             yaml.dump(yaml_conf, f, default_flow_style=False)
 
         train_script_str = '''
@@ -335,7 +341,7 @@ def main():
             --exist-ok \
             --name ${RUN_NAME}
         '''
-        with open(model_dir / "run_train_militaryaircraft.sh", 'w') as f:
+        with open(Path("./yolov7") / "run_train_militaryaircraft.sh", 'w') as f:
             f.write(train_script_str)
 
 
