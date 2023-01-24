@@ -1,0 +1,31 @@
+FROM  pytorch/pytorch:latest
+
+WORKDIR /usr/src/app/
+
+# install tools
+RUN apt-get update \
+	&& apt-get -y install --no-install-recommends \
+	git \
+	zip \
+	htop \
+	screen \
+	libgl1-mesa-glx \
+	libglib2.0-0 \
+	&& rm -rf /var/lib/apt/lists/*
+
+# get the yolo code
+RUN git clone https://github.com/WongKinYiu/yolov7.git .
+
+# install yolo
+RUN pip install -r requirements.txt
+
+
+# copy the 
+# copy data
+#COPY ./images ./dataset/images/
+#COPY ./labels ./dataset/labels/
+# copy data conf
+#COPY ./train_split.txt ./dataset/
+#COPY ./val_split.txt ./dataset/
+#COPY ./run_train_militaryaircraft.sh ./data/
+#COPY MilitaryAircraft.yaml ./data/
