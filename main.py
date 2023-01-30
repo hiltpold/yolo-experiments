@@ -39,9 +39,13 @@ def get_paths(path: Path) -> tuple[list[str], list[Path]]:
 
 def build_class_index(path: Path) -> dict[str, int]:
     class_names = sorted(os.listdir(path / "crop"))
-    filtered_class_names = list(filter(lambda f: not f.startswith("."), class_names))
+    filtered_class_names = list(
+        filter(lambda f: not f.startswith("."), class_names))
 
-    class_idx = {class_name: i for i, class_name in enumerate(filtered_class_names)}
+    class_idx = {
+        class_name: i
+        for i, class_name in enumerate(filtered_class_names)
+    }
 
     json_path = path / "class2idx.json"
     json_path.write_text(json.dumps(class_idx))
@@ -65,16 +69,21 @@ def invert_class_index(path: Path,
         with open(json_path) as f:
             class_idx = json.load(f)
         # invert class2idx -> idx2class
-        inverted_class_idx = {class_id: class_name for class_name, class_id in class_idx.items()}
+        inverted_class_idx = {
+            class_id: class_name
+            for class_name, class_id in class_idx.items()
+        }
         if save:
             json_path = path / "idx2class.json"
             json_path.write_text(json.dumps(inverted_class_idx))
         return inverted_class_idx
     else:
-        raise RuntimeError(f"No file {json_path} found. Start with preprocessing step.")
+        raise RuntimeError(
+            f"No file {json_path} found. Start with preprocessing step.")
 
 
-def convert_bboxes_to_yolo_format(paths: list[str], lu: dict[str, int], out_dir: str):
+def convert_bboxes_to_yolo_format(paths: list[str], lu: dict[str, int],
+                                  out_dir: str):
     for annotation_path in tqdm(paths):
         # get image_id
         image_id = annotation_path.parts[-1].split('.')[0]
@@ -96,7 +105,9 @@ def to_yolo_format(df: pd.DataFrame, idx_lu: dict):
     df['yc'] = (df['ymin'] + df['ymax']) / 2
     df['w'] = (df['xmax'] - df['xmin'])
     df['h'] = (df['ymax'] - df['ymin'])
-    df.drop(['filename', 'width', 'height', 'xmin', 'xmax', 'ymin', 'ymax'], axis=1, inplace=True)
+    df.drop(['filename', 'width', 'height', 'xmin', 'xmax', 'ymin', 'ymax'],
+            axis=1,
+            inplace=True)
     return df
 
 
@@ -116,12 +127,17 @@ def gnerate_sample_images(n_samples: int,
     cmap = plt.get_cmap('rainbow', len(class_idx))
     sample_ids = np.random.randint(0, len(os.listdir(image_dir)), n_samples)
 
-    image_paths = [Path(image_dir) / image_path for image_path in sorted(os.listdir(image_dir))]
-    label_paths = [Path(label_dir) / label_path for label_path in sorted(os.listdir(label_dir))]
+    image_paths = [
+        Path(image_dir) / image_path
+        for image_path in sorted(os.listdir(image_dir))
+    ]
+    label_paths = [
+        Path(label_dir) / label_path
+        for label_path in sorted(os.listdir(label_dir))
+    ]
 
     image = np.array(Image.open(image_paths[sample_ids[0]]))
     bboxes = np.loadtxt(label_paths[sample_ids[0]], ndmin=2)
-    print(bboxes)
     for i, sample_id in enumerate(sample_ids):
         fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(12, 4 * 7))
         # load image and bboxes
@@ -154,12 +170,14 @@ def gnerate_sample_images(n_samples: int,
 
         ax.imshow(image)
         ax.axis("off")
-        fig.savefig(sample_image_dir / f"sample_{inverted_class_idx[str(int(class_id))]}.png",
+        fig.savefig(sample_image_dir /
+                    f"sample_{inverted_class_idx[str(int(class_id))]}.png",
                     bbox_inches='tight',
                     pad_inches=0)
 
 
-def plot_train_val_split_frequency(path: Path, label_dir: Path, output_dir: Path):
+def plot_train_val_split_frequency(path: Path, label_dir: Path,
+                                   output_dir: Path):
     class_counter = {'train': Counter(), 'val': Counter()}
     class_freqs = {}
 
@@ -170,7 +188,10 @@ def plot_train_val_split_frequency(path: Path, label_dir: Path, output_dir: Path
             class_counter['train'].update(df[:, 0].astype(int))
     # get class freqs
     total = sum(class_counter['train'].values())
-    class_freqs['train'] = {k: v / total for k, v in class_counter['train'].items()}
+    class_freqs['train'] = {
+        k: v / total
+        for k, v in class_counter['train'].items()
+    }
 
     with open(path / 'val_split.txt', 'r') as f:
         for line in f:
@@ -179,12 +200,19 @@ def plot_train_val_split_frequency(path: Path, label_dir: Path, output_dir: Path
             class_counter['val'].update(df[:, 0].astype(int))
     # get class freqs
     total = sum(class_counter['val'].values())
-    class_freqs['val'] = {k: v / total for k, v in class_counter['val'].items()}
+    class_freqs['val'] = {
+        k: v / total
+        for k, v in class_counter['val'].items()
+    }
 
     # plot
     fig, ax = plt.subplots(figsize=(9, 6))
-    ax.plot(range(40), [class_freqs['train'][i] for i in range(40)], color='navy', label='train')
-    ax.plot(range(40), [class_freqs['val'][i] for i in range(40)], color='tomato', label='val')
+    ax.plot(range(40), [class_freqs['train'][i] for i in range(40)],
+            color='navy',
+            label='train')
+    ax.plot(range(40), [class_freqs['val'][i] for i in range(40)],
+            color='tomato',
+            label='val')
     ax.legend()
     ax.set_xlabel('Class ID')
     ax.set_ylabel('Class Frequency')
@@ -218,6 +246,7 @@ def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument("data_dir")
+    parser.add_argument("model_dir")
     parser.add_argument("--archive_name")
     parser.add_argument('--preprocess', action="store_true")
     parser.add_argument('--samples', action="store_true")
@@ -235,27 +264,28 @@ def main():
     train_conf = args.train_conf
 
     if (preprocess and zip_file == ""):
-        raise RuntimeError(f"If preprocessing is wished, please provide and archive_name")
+        raise RuntimeError(
+            f"If preprocessing is wished, please provide and archive_name")
 
     # directories with raw data
     base_dir = Path(args.data_dir)
+    model_dir = Path(args.model_dir)
 
     # directories for preprocessed images and labels
-    image_dir = Path(base_dir) / "dataset/images"
-    label_dir = Path(base_dir) / "dataset/labels"
-    sample_dir = Path(base_dir) / "dataset/sample_images"
+    image_dir = Path(model_dir) / "dataset/images"
+    label_dir = Path(model_dir) / "dataset/labels"
+    sample_dir = Path(base_dir) / "sample_images"
     output_dir = Path(base_dir) / "plots"
-    model_dir = Path(base_dir) / "model"
-    data_dir = Path(base_dir) / "data"
+
+    # check directories exist
+    dir_exists(base_dir)
+    dir_exists(model_dir)
 
     os.makedirs(image_dir, exist_ok=True)
     os.makedirs(label_dir, exist_ok=True)
     os.makedirs(sample_dir, exist_ok=True)
     os.makedirs(output_dir, exist_ok=True)
-    os.makedirs(model_dir, exist_ok=True)
-
-    # check directories exist
-    dir_exists(base_dir)
+    # os.makedirs(model_dir, exist_ok=True)
 
     class2idx = {}
     idx2class = {}
@@ -266,13 +296,15 @@ def main():
         unzip(base_dir / zip_file, raw_data_dir)
         dir_exists(raw_data_dir)
         # get image and annotations from raw data directory
-        image_paths, annotation_paths = get_paths(path=raw_data_dir / "dataset")
-        print(image_paths)
+        image_paths, annotation_paths = get_paths(path=raw_data_dir /
+                                                  "dataset")
         # build index
         class2idx = build_class_index(path=raw_data_dir)
         idx2class = invert_class_index(path=base_dir)
         # dataset labels are not yet in the correct format for yolov5
-        convert_bboxes_to_yolo_format(paths=annotation_paths, lu=class2idx, out_dir=label_dir)
+        convert_bboxes_to_yolo_format(paths=annotation_paths,
+                                      lu=class2idx,
+                                      out_dir=label_dir)
         # move data to final directories
         move_images(image_paths, image_dir)
         # remove raw files
@@ -288,61 +320,42 @@ def main():
                               sample_image_dir=sample_dir)
     elif train_conf:
         print("Prepare train configuration")
-        image_paths = [f'images/{image_path}' for image_path in sorted(os.listdir(image_dir))]
+        image_paths = [
+            f'images/{image_path}'
+            for image_path in sorted(os.listdir(image_dir))
+        ]
         train_size = 0.8
-        train_image_paths, val_image_paths = train_test_split(image_paths,
-                                                              train_size=train_size,
-                                                              random_state=42,
-                                                              shuffle=True)
+        train_image_paths, val_image_paths = train_test_split(
+            image_paths, train_size=train_size, random_state=42, shuffle=True)
         # make train split
-        with open(base_dir / 'dataset/train_split.txt', 'w') as f:
-            f.writelines(f'./{image_path}\n' for image_path in train_image_paths)
+        with open(model_dir / 'dataset/train_split.txt', 'w') as f:
+            f.writelines(f'./{image_path}\n'
+                         for image_path in train_image_paths)
 
         # make val split
-        with open(base_dir / 'dataset/val_split.txt', 'w') as f:
+        with open(model_dir / 'dataset/val_split.txt', 'w') as f:
             f.writelines(f'./{image_path}\n' for image_path in val_image_paths)
 
-        plot_train_val_split_frequency(path=base_dir / "dataset",
-                                       label_dir=label_dir,
-                                       output_dir=output_dir)
+        # plot_train_val_split_frequency(path=base_dir / "dataset",
+        #                               label_dir=label_dir,
+        #                               output_dir=output_dir)
 
     else:
         print("Write configuration for training")
-        idx = {int(k): v for k, v in load_json_as_dict(Path(base_dir) / "idx2class.json").items()}
+        idx = {
+            int(k): v
+            for k, v in load_json_as_dict(Path(base_dir) /
+                                          "idx2class.json").items()
+        }
         #idx = {}
         yaml_conf = {}
-        yaml_conf["path"] = "../../militaryaircrafts/dataset/"
+        yaml_conf["path"] = "../dataset/"
         yaml_conf["train"] = "train_split.txt"
         yaml_conf["val"] = "val_split.txt"
         yaml_conf["names"] = idx
 
         with open(Path("./yolov7") / "data/MilitaryAircraft.yaml", 'w') as f:
             yaml.dump(yaml_conf, f, default_flow_style=False)
-
-        train_script_str = '''
-        #!/bin/bash
-
-        # that is total batch size
-        BATCH_SIZE=48
-
-        RUN_NAME=train_yolov5s_low
-
-        python train.py \
-            \
-            --hyp data/hyps/hyp.scratch-low.yaml \
-            \
-            --img 640 \
-            --batch ${BATCH_SIZE} \
-            --epochs 300 \
-            --data MilitaryAircraft.yaml \
-            --weights yolov5s.pt \
-            \
-            --project runs/MilitaryAircraft \
-            --exist-ok \
-            --name ${RUN_NAME}
-        '''
-        with open(Path("./yolov7") / "run_train_militaryaircraft.sh", 'w') as f:
-            f.write(train_script_str)
 
 
 if __name__ == "__main__":

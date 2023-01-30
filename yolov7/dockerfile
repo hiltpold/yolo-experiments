@@ -18,14 +18,3 @@ RUN git clone https://github.com/WongKinYiu/yolov7.git .
 
 # install yolo
 RUN pip install -r requirements.txt
-
-
-# copy the 
-# copy data
-#COPY ./images ./dataset/images/
-#COPY ./labels ./dataset/labels/
-# copy data conf
-#COPY ./train_split.txt ./dataset/
-#COPY ./val_split.txt ./dataset/
-#COPY ./run_train_militaryaircraft.sh ./data/
-#COPY MilitaryAircraft.yaml ./data/
