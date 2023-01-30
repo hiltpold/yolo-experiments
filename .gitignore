@@ -4,5 +4,7 @@
 venv
 images
 labels
+model
+dataset
 # raw data files
 *.zip
