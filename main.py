@@ -347,14 +347,14 @@ def main():
             for k, v in load_json_as_dict(Path(base_dir) /
                                           "idx2class.json").items()
         }
-        #idx = {}
         yaml_conf = {}
-        yaml_conf["path"] = "../dataset/"
-        yaml_conf["train"] = "train_split.txt"
-        yaml_conf["val"] = "val_split.txt"
-        yaml_conf["names"] = idx
+        yaml_conf["path"] = "/usr/src/app/external/dataset/"
+        yaml_conf["train"] = "/usr/src/app/external/dataset/train_split.txt"
+        yaml_conf["val"] = "/usr/src/app/external/dataset/val_split.txt"
+        yaml_conf["nc"] = len(list(idx.keys()))
+        yaml_conf["names"] = list(idx.values())
 
-        with open(Path("./yolov7") / "data/MilitaryAircraft.yaml", 'w') as f:
+        with open(Path("./yolov7") / "data/militaryaircrafts.yaml", 'w') as f:
             yaml.dump(yaml_conf, f, default_flow_style=False)
 
 
